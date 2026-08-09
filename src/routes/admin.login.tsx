@@ -33,7 +33,7 @@ function Login() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-8">
-      <p className="label">the salt road</p>
+      <p className="label">The Blade Cuts Both Ways</p>
       <h1 className="mt-6 text-3xl font-light italic text-ink">Sign in</h1>
 
       <form onSubmit={submit} className="mt-12">

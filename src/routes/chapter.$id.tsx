@@ -27,7 +27,7 @@ export const Route = createFileRoute("/chapter/$id")({
       };
     }
     const { chapter } = loaderData;
-    const title = `${chapter.numeral}. ${chapter.title} — The Salt Road`;
+    const title = `${chapter.numeral}. ${chapter.title} — The Blade Cuts Both Ways`;
     const description = chapter.opening;
     return {
       meta: [
@@ -134,10 +134,7 @@ function ProgressLine({ percent }: { percent: number }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 flex items-center gap-3 px-6 py-4">
       <div className="h-px flex-1 bg-rule">
-        <div
-          className="h-px bg-ink transition-all duration-300"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="h-px bg-ink transition-all duration-300" style={{ width: `${percent}%` }} />
       </div>
       <span className="label tabular-nums">{percent}%</span>
     </div>
@@ -153,9 +150,7 @@ function Heading({ chapter }: { chapter: C }) {
   return (
     <header className="text-center">
       <p className="label">chapter {chapter.numeral}</p>
-      <h1 className="mt-6 text-4xl font-light italic text-ink sm:text-5xl">
-        {chapter.title}
-      </h1>
+      <h1 className="mt-6 text-4xl font-light italic text-ink sm:text-5xl">{chapter.title}</h1>
       <hr className="mx-auto mt-10 w-16 border-0 border-t border-ink-soft" />
     </header>
   );
@@ -193,40 +188,40 @@ function ScrollReader({
 
   return (
     <>
-    <main className="mx-auto max-w-2xl px-8 pt-32 pb-32">
-      <Heading chapter={chapter} />
-      {chapter.opening && (
-        <p className="mt-16 text-2xl leading-[1.7] font-light italic text-ink">
-          {chapter.opening}
-        </p>
-      )}
-      <div className="mt-10">
-        <PageBody blocks={toBlocks(chapter.content)} />
+      <main className="mx-auto max-w-2xl px-8 pt-32 pb-32">
+        <Heading chapter={chapter} />
+        {chapter.opening && (
+          <p className="mt-16 text-2xl leading-[1.7] font-light italic text-ink">
+            {chapter.opening}
+          </p>
+        )}
+        <div className="mt-10">
+          <PageBody blocks={toBlocks(chapter.content)} />
+        </div>
+        <hr className="mt-24 border-0 border-t border-rule" />
+        <nav className="mt-8 flex justify-between">
+          {prev ? (
+            <Link to="/chapter/$id" params={{ id: prev.id }} className="label hover:opacity-60">
+              ← {prev.title}
+            </Link>
+          ) : (
+            <span />
+          )}
+          {next ? (
+            <Link to="/chapter/$id" params={{ id: next.id }} className="label hover:opacity-60">
+              {next.title} →
+            </Link>
+          ) : (
+            <Link to="/" className="label hover:opacity-60">
+              index →
+            </Link>
+          )}
+        </nav>
+      </main>
+      <MarginBlade percent={here} marks={[33, 66, 100]} />
+      <div className="sm:hidden">
+        <ProgressLine percent={percent} />
       </div>
-      <hr className="mt-24 border-0 border-t border-rule" />
-      <nav className="mt-8 flex justify-between">
-        {prev ? (
-          <Link to="/chapter/$id" params={{ id: prev.id }} className="label hover:opacity-60">
-            ← {prev.title}
-          </Link>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <Link to="/chapter/$id" params={{ id: next.id }} className="label hover:opacity-60">
-            {next.title} →
-          </Link>
-        ) : (
-          <Link to="/" className="label hover:opacity-60">
-            index →
-          </Link>
-        )}
-      </nav>
-    </main>
-    <MarginBlade percent={here} marks={[33, 66, 100]} />
-    <div className="sm:hidden">
-      <ProgressLine percent={percent} />
-    </div>
     </>
   );
 }
@@ -341,11 +336,7 @@ function FlipReader({
           <section className="flex h-screen w-screen shrink-0 snap-center flex-col items-center justify-center gap-8 px-8">
             <hr className="w-16 border-0 border-t border-rule" />
             {next ? (
-              <Link
-                to="/chapter/$id"
-                params={{ id: next.id }}
-                className="label hover:opacity-60"
-              >
+              <Link to="/chapter/$id" params={{ id: next.id }} className="label hover:opacity-60">
                 {next.title} →
               </Link>
             ) : (
@@ -358,7 +349,11 @@ function FlipReader({
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center gap-4 px-6 py-4">
-        <button onClick={() => go(page - 1)} className="label hover:opacity-60" aria-label="Previous page">
+        <button
+          onClick={() => go(page - 1)}
+          className="label hover:opacity-60"
+          aria-label="Previous page"
+        >
           ←
         </button>
         <div className="h-px flex-1 bg-rule">
@@ -371,10 +366,15 @@ function FlipReader({
           {page + 1} / {total}
         </span>
         <span className="label tabular-nums">{percent}%</span>
-        <button onClick={() => go(page + 1)} className="label hover:opacity-60" aria-label="Next page">
+        <button
+          onClick={() => go(page + 1)}
+          className="label hover:opacity-60"
+          aria-label="Next page"
+        >
           →
         </button>
       </div>
     </main>
   );
 }
+

@@ -10,17 +10,16 @@ export const Route = createFileRoute("/")({
   loader: async () => ({ chapters: await listPublished() }),
   head: () => ({
     meta: [
-      { title: "The Salt Road — a web novel in chapters" },
+      { title: "The Blade Cuts Both Ways — a web novel in chapters" },
       {
         name: "description",
         content:
           "An empty-world tale of swordsmen and dust, published chapter by chapter. Read by scrolling or by turning pages.",
       },
-      { property: "og:title", content: "The Salt Road — a web novel in chapters" },
+      { property: "og:title", content: "The Blade Cuts Both Ways — a web novel in chapters" },
       {
         property: "og:description",
-        content:
-          "An empty-world tale of swordsmen and dust, published chapter by chapter.",
+        content: "An empty-world tale of swordsmen and dust, published chapter by chapter.",
       },
     ],
   }),
@@ -41,7 +40,7 @@ function Index() {
       <ThemeToggle className="fixed top-4 right-6" />
       <p className="label">a tale in chapters</p>
       <h1 className="mt-10 text-5xl font-light tracking-tight text-ink sm:text-7xl">
-        The Salt Road
+        The Blade Cuts Both Ways
       </h1>
       <p className="mt-6 text-xl font-light italic text-ink-soft sm:text-2xl">
         the world ended quietly, and no one thought to mention it
@@ -53,7 +52,10 @@ function Index() {
         <div className="mb-10 flex items-center gap-4">
           <span className="label">your progress</span>
           <div className="h-px flex-1 bg-rule">
-            <div className="h-px bg-ink transition-all duration-500" style={{ width: `${overall}%` }} />
+            <div
+              className="h-px bg-ink transition-all duration-500"
+              style={{ width: `${overall}%` }}
+            />
           </div>
           <span className="label tabular-nums">{overall}%</span>
         </div>
@@ -82,7 +84,10 @@ function Index() {
                 </div>
                 {ready && p > 0 && (
                   <div className="mt-3 ml-12 h-px bg-rule">
-                    <div className="h-px bg-ink transition-all duration-500" style={{ width: `${p}%` }} />
+                    <div
+                      className="h-px bg-ink transition-all duration-500"
+                      style={{ width: `${p}%` }}
+                    />
                   </div>
                 )}
               </Link>

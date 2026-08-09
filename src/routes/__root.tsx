@@ -77,12 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "The Salt Road — a web novel" },
+      { title: "Blade Cuts Both Ways — a web novel" },
       {
         name: "description",
         content: "A quiet, minimalist web novel read chapter by chapter.",
       },
-      { property: "og:title", content: "The Salt Road — a web novel" },
+      { property: "og:title", content: "Blade Cuts Both Ways" },
       {
         property: "og:description",
         content: "A quiet, minimalist web novel read chapter by chapter.",
