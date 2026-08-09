@@ -58,13 +58,17 @@ const toChapter = (r: RecordModel): Chapter => ({
  * collection's list rule, not here — the server is what enforces it.
  */
 export async function listPublished(): Promise<Chapter[]> {
-  const recs = await pb.collection("chapters").getFullList({ sort: "order", filter: "published = true" });
+  const recs = await pb
+    .collection("chapters")
+    .getFullList({ sort: "order", filter: "published = true" });
   return recs.map(toChapter);
 }
 
 export async function getBySlug(slug: string): Promise<Chapter | null> {
   try {
-    const rec = await pb.collection("chapters").getFirstListItem(`slug = "${slug.replace(/"/g, "")}"`);
+    const rec = await pb
+      .collection("chapters")
+      .getFirstListItem(`slug = "${slug.replace(/"/g, "")}"`);
     return toChapter(rec);
   } catch {
     return null;
@@ -79,6 +83,35 @@ export async function waitlistCount(): Promise<number> {
     return res.count ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/* ----------------------------------- views -------------------------------- */
+
+/**
+ * Count one read. Fired from the browser, never from SSR — inside the compose
+ * network the server is the only "visitor" PocketBase would ever see, so every
+ * read would collapse into one.
+ *
+ * Failures are swallowed: a counter is never worth an error in front of a
+ * reader. The server does the deduping and tells us nothing back.
+ */
+export async function recordView(slug: string): Promise<void> {
+  try {
+    await pb.send(`/api/view/${encodeURIComponent(slug)}`, { method: "POST" });
+  } catch {
+    /* not worth surfacing */
+  }
+}
+
+export type ViewStats = Record<string, { unique: number; total: number }>;
+
+/** Per-chapter counts, keyed by chapter id. Staff-only on the server. */
+export async function fetchViewStats(): Promise<ViewStats> {
+  try {
+    return await pb.send<ViewStats>("/api/views", { method: "GET" });
+  } catch {
+    return {};
   }
 }
 

@@ -142,10 +142,107 @@ function notifyWaitlist(app, chapter) {
   return result;
 }
 
+/* --------------------------------- views ---------------------------------- */
+
+// Anything that reads a page without a human behind it. Not exhaustive — it
+// doesn't need to be, it just keeps the obvious noise out of the numbers.
+var BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|curl|wget|headless|monitor|python-requests|axios|okhttp|go-http|scrapy|lighthouse/i;
+
+function isBotUA(ua) {
+  return !ua || BOT_UA.test(ua);
+}
+
+/**
+ * A stable, non-reversible id for one reader on one machine.
+ *
+ * IP + user-agent is the best signal available without setting a cookie, and
+ * hashing it means the database never holds an address. VIEW_SALT keeps the
+ * hash from being brute-forceable back to an IP (the space is small enough to
+ * enumerate otherwise); losing or changing it just resets the dedup window.
+ */
+function visitorId(ip, ua) {
+  var salt = $os.getenv("VIEW_SALT") || "swordbook-view-salt";
+  return $security.hs256(String(ip || "") + "|" + String(ua || ""), salt);
+}
+
+/**
+ * Count one view. Returns "new" if this visitor hadn't read the chapter before,
+ * "repeat" if they had. Never throws — a counter must not be able to break the
+ * page it's counting.
+ */
+function recordView(app, chapterId, visitor) {
+  var existing = null;
+  try {
+    existing = app.findFirstRecordByFilter(
+      "chapter_views",
+      "chapter = {:c} && visitor = {:v}",
+      { c: chapterId, v: visitor },
+    );
+  } catch (_) {
+    /* not found — first visit */
+  }
+
+  if (existing) {
+    try {
+      existing.set("hits", existing.getInt("hits") + 1);
+      app.save(existing);
+    } catch (err) {
+      console.log("[views] bump failed: " + err);
+    }
+    return "repeat";
+  }
+
+  try {
+    var col = app.findCollectionByNameOrId("chapter_views");
+    var rec = new Record(col);
+    rec.set("chapter", chapterId);
+    rec.set("visitor", visitor);
+    rec.set("hits", 1);
+    app.save(rec);
+    return "new";
+  } catch (err) {
+    // Almost certainly the unique index: two requests from the same reader
+    // raced past the lookup above. The row exists now, so this is a repeat.
+    console.log("[views] insert failed (likely duplicate): " + err);
+    return "repeat";
+  }
+}
+
+/**
+ * Per-chapter totals, keyed by chapter id: { unique, total }.
+ *
+ * Aggregated in SQL rather than by listing rows — the row count is the whole
+ * point of the table and there's no reason to pull thousands of them into JS.
+ */
+function viewStats(app) {
+  var out = {};
+  try {
+    var rows = arrayOf(new DynamicModel({ chapter: "", uniques: 0, total: 0 }));
+    app
+      .db()
+      .newQuery(
+        "SELECT chapter, COUNT(*) AS uniques, COALESCE(SUM(hits), 0) AS total" +
+          " FROM chapter_views GROUP BY chapter",
+      )
+      .all(rows);
+
+    for (var i = 0; i < rows.length; i++) {
+      out[rows[i].chapter] = { unique: rows[i].uniques, total: rows[i].total };
+    }
+  } catch (err) {
+    console.log("[views] stats query failed: " + err);
+  }
+  return out;
+}
+
 module.exports = {
   esc: esc,
   normalizeEmail: normalizeEmail,
   isEmail: isEmail,
   waitlistEmails: waitlistEmails,
   notifyWaitlist: notifyWaitlist,
+  isBotUA: isBotUA,
+  visitorId: visitorId,
+  recordView: recordView,
+  viewStats: viewStats,
 };

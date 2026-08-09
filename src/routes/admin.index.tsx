@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   createChapter,
   deleteChapter,
+  fetchViewStats,
   listAllChapters,
   listWaitlist,
   notifyChapter,
@@ -12,6 +13,7 @@ import {
   type Chapter,
   type ChapterDraft,
   type Subscriber,
+  type ViewStats,
 } from "@/lib/pb";
 import { readingMinutes, wordCount } from "@/components/reader/blocks";
 
@@ -37,6 +39,7 @@ function Admin() {
   const [tab, setTab] = useState<"chapters" | "waitlist">("chapters");
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [subs, setSubs] = useState<Subscriber[]>([]);
+  const [views, setViews] = useState<ViewStats>({});
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<ChapterDraft>(blank(0));
   const [busy, setBusy] = useState(false);
@@ -45,9 +48,10 @@ function Admin() {
 
   const refresh = useCallback(async () => {
     try {
-      const [cs, ws] = await Promise.all([listAllChapters(), listWaitlist()]);
+      const [cs, ws, vs] = await Promise.all([listAllChapters(), listWaitlist(), fetchViewStats()]);
       setChapters(cs);
       setSubs(ws);
+      setViews(vs);
     } catch {
       setNote("Couldn't reach the server.");
     }
@@ -189,6 +193,7 @@ function Admin() {
         ) : (
           <ChapterList
             chapters={chapters}
+            views={views}
             busy={busy}
             onNew={startNew}
             onEdit={startEdit}
@@ -217,6 +222,7 @@ function Admin() {
 
 function ChapterList({
   chapters,
+  views,
   busy,
   onNew,
   onEdit,
@@ -225,6 +231,7 @@ function ChapterList({
   onPublish,
 }: {
   chapters: Chapter[];
+  views: ViewStats;
   busy: boolean;
   onNew: () => void;
   onEdit: (c: Chapter) => void;
@@ -235,49 +242,63 @@ function ChapterList({
   return (
     <>
       <ul className="mt-12">
-        {chapters.map((c) => (
-          <li key={c.id} className="border-b border-rule py-6">
-            <div className="flex items-baseline gap-6">
-              <span className="label w-6">{c.numeral || "—"}</span>
-              <button onClick={() => onEdit(c)} className="flex-1 text-left">
-                <span className="text-2xl font-light italic text-ink hover:opacity-60">
-                  {c.title || "untitled"}
+        {chapters.map((c) => {
+          const v = views[c.id];
+          return (
+            <li key={c.id} className="border-b border-rule py-6">
+              <div className="flex items-baseline gap-6">
+                <span className="label w-6">{c.numeral || "—"}</span>
+                <button onClick={() => onEdit(c)} className="flex-1 text-left">
+                  <span className="text-2xl font-light italic text-ink hover:opacity-60">
+                    {c.title || "untitled"}
+                  </span>
+                </button>
+                {c.published && (
+                  <span
+                    className="label tabular-nums opacity-50"
+                    // Unique is the headline; the total is the same readers coming back.
+                    title={v ? `${v.total} visit${v.total === 1 ? "" : "s"} in total` : undefined}
+                  >
+                    {(v?.unique ?? 0).toLocaleString()} read
+                  </span>
+                )}
+                <span className="label tabular-nums opacity-50">
+                  {readingMinutes(c.content)} min
                 </span>
-              </button>
-              <span className="label tabular-nums opacity-50">
-                {readingMinutes(c.content)} min
-              </span>
-              <span className="label" style={{ opacity: c.published ? 1 : 0.4 }}>
-                {c.published ? "published" : "draft"}
-              </span>
-            </div>
-            <div className="mt-4 ml-12 flex gap-6">
-              {c.published ? (
+                <span className="label" style={{ opacity: c.published ? 1 : 0.4 }}>
+                  {c.published ? "published" : "draft"}
+                </span>
+              </div>
+              <div className="mt-4 ml-12 flex gap-6">
+                {c.published ? (
+                  <button
+                    onClick={() => onUnpublish(c)}
+                    disabled={busy}
+                    className="label opacity-40 hover:opacity-100"
+                  >
+                    unpublish
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onPublish(c)}
+                    disabled={busy}
+                    className="label hover:opacity-60"
+                  >
+                    publish →
+                  </button>
+                )}
+                {c.published && c.notifiedAt && <span className="label opacity-30">announced</span>}
                 <button
-                  onClick={() => onUnpublish(c)}
+                  onClick={() => onDelete(c)}
                   disabled={busy}
                   className="label opacity-40 hover:opacity-100"
                 >
-                  unpublish
+                  delete
                 </button>
-              ) : (
-                <button onClick={() => onPublish(c)} disabled={busy} className="label hover:opacity-60">
-                  publish →
-                </button>
-              )}
-              {c.published && c.notifiedAt && (
-                <span className="label opacity-30">announced</span>
-              )}
-              <button
-                onClick={() => onDelete(c)}
-                disabled={busy}
-                className="label opacity-40 hover:opacity-100"
-              >
-                delete
-              </button>
-            </div>
-          </li>
-        ))}
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       <button onClick={onNew} className="label mt-10 hover:opacity-60">
@@ -372,8 +393,8 @@ function Editor({
           </span>
         </div>
         <p className="mt-2 text-sm font-light italic text-ink-soft">
-          Paste the whole thing. A blank line starts a new paragraph — pages are
-          worked out from the reader's screen, so there's nothing to split here.
+          Paste the whole thing. A blank line starts a new paragraph — pages are worked out from the
+          reader's screen, so there's nothing to split here.
         </p>
         <textarea
           value={draft.content}

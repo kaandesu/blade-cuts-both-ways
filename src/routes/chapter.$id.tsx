@@ -5,7 +5,7 @@ import { PageBody, toBlocks } from "@/components/reader/blocks";
 import { usePagination } from "@/hooks/usePagination";
 import { useChapterProgress } from "@/hooks/useProgress";
 import { ThemeToggle } from "@/components/reader/theme-toggle";
-import { getBySlug, listPublished, type Chapter } from "@/lib/pb";
+import { getBySlug, listPublished, recordView, type Chapter } from "@/lib/pb";
 
 export const Route = createFileRoute("/chapter/$id")({
   loader: async ({ params }) => {
@@ -80,6 +80,16 @@ function ChapterPage() {
   const { chapter, prev, next } = Route.useLoaderData();
   const { mode, setMode } = useReaderMode();
   const { percent, report } = useChapterProgress(chapter.id);
+
+  // One ping per chapter per mount. The ref keeps StrictMode's double-mount in
+  // development from counting the same open twice; the server is what decides
+  // whether this reader is new or returning.
+  const counted = useRef("");
+  useEffect(() => {
+    if (counted.current === chapter.slug) return;
+    counted.current = chapter.slug;
+    void recordView(chapter.slug);
+  }, [chapter.slug]);
 
   return (
     <div className={mode === "flip" ? "h-screen overflow-hidden" : "min-h-screen"}>
@@ -377,4 +387,3 @@ function FlipReader({
     </main>
   );
 }
-
