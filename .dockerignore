@@ -1,0 +1,12 @@
+node_modules
+.output
+dist
+.wrangler
+.git
+.env
+.env.*
+!.env.example
+pocketbase/pb_data
+**/.DS_Store
+npm-debug.log*
+pnpm-debug.log*

@@ -1,0 +1,48 @@
+# Frontend (Node SSR) + PocketBase, deployed together.
+# NOTE: services use `expose` only (no `ports:`) — Coolify's Traefik proxy
+# reaches them on their exposed ports. Add a temporary `ports:` mapping only for
+# local testing.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Public PocketBase URL the browser will use (baked in at build time).
+        VITE_POCKETBASE_URL: ${VITE_POCKETBASE_URL:-}
+    environment:
+      - PORT=3000
+      # SSR reads chapters over the compose network, never the public internet.
+      - POCKETBASE_URL=http://pocketbase:8090
+    expose:
+      - "3000"
+    depends_on:
+      - pocketbase
+    restart: unless-stopped
+
+  pocketbase:
+    build:
+      context: ./pocketbase
+      dockerfile: Dockerfile
+    environment:
+      # Optional: auto-provision the superuser for the /_/ dashboard (idempotent).
+      - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-}
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-}
+      # Optional: seed the author login for /admin on first boot (via migration).
+      - PB_STAFF_EMAIL=${PB_STAFF_EMAIL:-}
+      - PB_STAFF_PASSWORD=${PB_STAFF_PASSWORD:-}
+      # Waitlist emails (Resend). An empty RESEND_API_KEY disables sending, and
+      # publishing still works.
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM=${RESEND_FROM:-}
+      # Used to build the "read it" link in the notification email.
+      - APP_URL=${APP_URL:-}
+    volumes:
+      - pb_data:/pb/pb_data
+    expose:
+      - "8090"
+    restart: unless-stopped
+
+volumes:
+  pb_data:
