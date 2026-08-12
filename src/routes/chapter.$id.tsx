@@ -1,6 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReaderMode } from "@/hooks/useReaderMode";
+import { useFontSize, type FontSize } from "@/hooks/useFontSize";
+import { SettingsDialog } from "@/components/reader/settings-dialog";
 import { PageBody, toBlocks } from "@/components/reader/blocks";
 import { usePagination } from "@/hooks/usePagination";
 import { useChapterProgress } from "@/hooks/useProgress";
@@ -44,9 +46,11 @@ export const Route = createFileRoute("/chapter/$id")({
 function ModeBar({
   mode,
   setMode,
+  onSettings,
 }: {
   mode: "scroll" | "flip";
   setMode: (m: "scroll" | "flip") => void;
+  onSettings: () => void;
 }) {
   return (
     <div className="fixed inset-x-0 top-0 z-10 flex items-center justify-between px-6 py-4 backdrop-blur-[2px]">
@@ -71,6 +75,14 @@ function ModeBar({
         </div>
         <span className="h-3 w-px bg-rule" />
         <ThemeToggle />
+        <span className="h-3 w-px bg-rule" />
+        <button
+          onClick={onSettings}
+          aria-label="Reading settings"
+          className="label opacity-60 transition-opacity hover:opacity-100"
+        >
+          Aa
+        </button>
       </div>
     </div>
   );
@@ -79,7 +91,9 @@ function ModeBar({
 function ChapterPage() {
   const { chapter, prev, next } = Route.useLoaderData();
   const { mode, setMode } = useReaderMode();
+  const { size } = useFontSize();
   const { percent, report } = useChapterProgress(chapter.id);
+  const [settings, setSettings] = useState(false);
 
   // One ping per chapter per mount. The ref keeps StrictMode's double-mount in
   // development from counting the same open twice; the server is what decides
@@ -93,13 +107,34 @@ function ChapterPage() {
 
   return (
     <div className={mode === "flip" ? "h-screen overflow-hidden" : "min-h-screen"}>
-      <ModeBar mode={mode} setMode={setMode} />
+      <ModeBar mode={mode} setMode={setMode} onSettings={() => setSettings(true)} />
+      {/*
+        Keyed on the chapter: this route component stays mounted across a
+        prev/next navigation, so without it the new chapter would open on
+        whatever leaf the last one was left at.
+      */}
       {mode === "scroll" ? (
-        <ScrollReader chapter={chapter} prev={prev} next={next} percent={percent} report={report} />
+        <ScrollReader
+          key={chapter.id}
+          chapter={chapter}
+          prev={prev}
+          next={next}
+          percent={percent}
+          report={report}
+        />
       ) : (
-        <FlipReader chapter={chapter} next={next} percent={percent} report={report} />
+        <FlipReader
+          key={chapter.id}
+          chapter={chapter}
+          next={next}
+          percent={percent}
+          report={report}
+          fontSize={size}
+          paused={settings}
+        />
       )}
       <PageFade />
+      {settings && <SettingsDialog onClose={() => setSettings(false)} />}
     </div>
   );
 }
@@ -201,9 +236,7 @@ function ScrollReader({
       <main className="mx-auto max-w-2xl px-8 pt-32 pb-32">
         <Heading chapter={chapter} />
         {chapter.opening && (
-          <p className="mt-16 text-2xl leading-[1.7] font-light italic text-ink">
-            {chapter.opening}
-          </p>
+          <p className="reader-open mt-16 font-light italic text-ink">{chapter.opening}</p>
         )}
         <div className="mt-10">
           <PageBody blocks={toBlocks(chapter.content)} />
@@ -211,14 +244,14 @@ function ScrollReader({
         <hr className="mt-24 border-0 border-t border-rule" />
         <nav className="mt-8 flex justify-between">
           {prev ? (
-            <Link to="/chapter/$id" params={{ id: prev.id }} className="label hover:opacity-60">
+            <Link to="/chapter/$id" params={{ id: prev.slug }} className="label hover:opacity-60">
               ← {prev.title}
             </Link>
           ) : (
             <span />
           )}
           {next ? (
-            <Link to="/chapter/$id" params={{ id: next.id }} className="label hover:opacity-60">
+            <Link to="/chapter/$id" params={{ id: next.slug }} className="label hover:opacity-60">
               {next.title} →
             </Link>
           ) : (
@@ -241,13 +274,17 @@ function FlipReader({
   next,
   percent,
   report,
+  fontSize,
+  paused,
 }: {
   chapter: C;
   next: C | undefined;
   percent: number;
   report: (v: number) => void;
+  fontSize: FontSize;
+  /** The settings modal is open — the page underneath shouldn't turn. */
+  paused: boolean;
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
 
   // Chrome eats the top and bottom of a leaf; the rest is what we can fill.
@@ -259,7 +296,7 @@ function FlipReader({
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  const { probeRef, probeBlocks, leaves } = usePagination(chapter.content, available);
+  const { probeRef, probeBlocks, leaves } = usePagination(chapter.content, available, fontSize);
   // The title leaf and the closing leaf bracket the paginated ones.
   const total = (leaves?.length ?? 0) + 2;
 
@@ -268,34 +305,84 @@ function FlipReader({
     report(((page + 1) / total) * 100);
   }, [page, total, report, leaves]);
 
-  const go = (i: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, Math.min(total - 1, i));
-    // Jump rather than glide. Marking the leaf active re-renders the track,
-    // and that re-render interrupts an in-flight smooth scroll inside a
-    // snap-mandatory container — it stalls a few pixels in and never
-    // arrives. A turned page should land anyway.
-    el.scrollLeft = clamped * el.clientWidth;
-    setPage(clamped);
-  };
+  const turn = useCallback(
+    (d: 1 | -1) => {
+      if (paused) return;
+      setPage((p) => Math.max(0, Math.min(total - 1, p + d)));
+    },
+    [total, paused],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") go(page + 1);
-      if (e.key === "ArrowLeft") go(page - 1);
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") turn(1);
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") turn(-1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [turn]);
 
-  // Keep the reader on the same leaf when a resize repaginates under them.
+  /**
+   * One gesture, one page. The track is transform-driven rather than a
+   * scroll container: native scroll-snap still lets a trackpad flick or a
+   * wheel's inertia carry through several leaves before it settles, which is
+   * not what turning a page means.
+   *
+   * The lock is released only once the input has actually stopped — momentum
+   * keeps refreshing the idle timer, so a single flick can never spend itself
+   * as a second turn.
+   */
+  const locked = useRef(false);
+  const idle = useRef(0);
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el || !leaves) return;
-    el.scrollTo({ left: Math.min(page, total - 1) * el.clientWidth });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaves]);
+    const release = () => {
+      window.clearTimeout(idle.current);
+      idle.current = window.setTimeout(() => {
+        locked.current = false;
+      }, 160);
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(delta) < 4) return;
+      e.preventDefault();
+      release();
+      if (locked.current) return;
+      locked.current = true;
+      turn(delta > 0 ? 1 : -1);
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.clearTimeout(idle.current);
+    };
+  }, [turn]);
+
+  // Touch: a swipe past the threshold turns exactly one page, however far the
+  // finger travels.
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0]!;
+    start.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const from = start.current;
+    start.current = null;
+    if (!from) return;
+    const t = e.changedTouches[0]!;
+    const dx = t.clientX - from.x;
+    const dy = t.clientY - from.y;
+    const [d, other] = Math.abs(dx) >= Math.abs(dy) ? [dx, dy] : [dy, dx];
+    if (Math.abs(d) < 40 || Math.abs(d) < Math.abs(other)) return;
+    turn(d < 0 ? 1 : -1);
+  };
+
+  // Keep the reader on a real leaf when a resize or a font change repaginates
+  // under them.
+  useEffect(() => {
+    if (leaves) setPage((p) => Math.max(0, Math.min(p, total - 1)));
+  }, [leaves, total]);
 
   return (
     <main className="h-screen overflow-hidden">
@@ -315,52 +402,54 @@ function FlipReader({
         </div>
       </div>
 
-      <div
-        ref={trackRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          setPage(Math.round(el.scrollLeft / el.clientWidth));
-        }}
-        className="flex h-screen snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <section className="flex h-screen w-screen shrink-0 snap-center flex-col justify-center px-8">
-          <div className="mx-auto w-full max-w-xl">
-            <Heading chapter={chapter} />
-            <p className="mt-12 text-center text-2xl leading-[1.7] font-light italic text-ink">
-              {chapter.opening}
-            </p>
-          </div>
-        </section>
-        {(leaves ?? []).map((leaf, i) => (
-          <section
-            key={i}
-            className="flex h-screen w-screen shrink-0 snap-center flex-col justify-center overflow-hidden px-8 pt-24 pb-24"
-          >
+      <div className="h-screen overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div
+          className="flex h-screen transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          style={{ transform: `translate3d(-${page * 100}%, 0, 0)` }}
+        >
+          <section className="flex h-screen w-screen shrink-0 flex-col justify-center px-8">
             <div className="mx-auto w-full max-w-xl">
-              <PageBody blocks={leaf} />
+              <Heading chapter={chapter} />
+              <p className="reader-open mt-12 text-center font-light italic text-ink">
+                {chapter.opening}
+              </p>
             </div>
           </section>
-        ))}
-        {/* The closing leaf. Kept separate so the nav never crowds the prose. */}
-        {leaves && (
-          <section className="flex h-screen w-screen shrink-0 snap-center flex-col items-center justify-center gap-8 px-8">
-            <hr className="w-16 border-0 border-t border-rule" />
-            {next ? (
-              <Link to="/chapter/$id" params={{ id: next.id }} className="label hover:opacity-60">
-                {next.title} →
-              </Link>
-            ) : (
-              <Link to="/" className="label hover:opacity-60">
-                index →
-              </Link>
-            )}
-          </section>
-        )}
+          {(leaves ?? []).map((leaf, i) => (
+            <section
+              key={i}
+              className="flex h-screen w-screen shrink-0 flex-col justify-center overflow-hidden px-8 pt-24 pb-24"
+            >
+              <div className="mx-auto w-full max-w-xl">
+                <PageBody blocks={leaf} />
+              </div>
+            </section>
+          ))}
+          {/* The closing leaf. Kept separate so the nav never crowds the prose. */}
+          {leaves && (
+            <section className="flex h-screen w-screen shrink-0 flex-col items-center justify-center gap-8 px-8">
+              <hr className="w-16 border-0 border-t border-rule" />
+              {next ? (
+                <Link
+                  to="/chapter/$id"
+                  params={{ id: next.slug }}
+                  className="label hover:opacity-60"
+                >
+                  {next.title} →
+                </Link>
+              ) : (
+                <Link to="/" className="label hover:opacity-60">
+                  index →
+                </Link>
+              )}
+            </section>
+          )}
+        </div>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center gap-4 px-6 py-4">
         <button
-          onClick={() => go(page - 1)}
+          onClick={() => turn(-1)}
           className="label hover:opacity-60"
           aria-label="Previous page"
         >
@@ -376,11 +465,7 @@ function FlipReader({
           {page + 1} / {total}
         </span>
         <span className="label tabular-nums">{percent}%</span>
-        <button
-          onClick={() => go(page + 1)}
-          className="label hover:opacity-60"
-          aria-label="Next page"
-        >
+        <button onClick={() => turn(1)} className="label hover:opacity-60" aria-label="Next page">
           →
         </button>
       </div>

@@ -118,11 +118,13 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
         {/*
           Runs before first paint so a dark-mode reader never sees a white
-          flash. Must stay in sync with src/hooks/useTheme.ts.
+          flash, and so prose is at the reader's chosen size the first time it
+          is measured. Must stay in sync with src/hooks/useTheme.ts and
+          src/hooks/useFontSize.ts.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("reader-theme")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark")}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem("reader-theme")||"system";var d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark");var f=localStorage.getItem("reader-font");if(f==="small"||f==="normal"||f==="big")document.documentElement.dataset.font=f}catch(e){}})()`,
           }}
         />
       </head>

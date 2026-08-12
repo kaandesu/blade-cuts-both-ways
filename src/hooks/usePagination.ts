@@ -14,8 +14,11 @@ function outerHeight(el: HTMLElement) {
  *
  * It measures for real rather than guessing: the caller renders every paragraph
  * into a hidden probe, we read the heights back, then pack.
+ *
+ * `scaleKey` is anything that changes the rendered text size (the reader's font
+ * setting) — the heights all move, so the packing has to be redone.
  */
-export function usePagination(content: string, available: number) {
+export function usePagination(content: string, available: number, scaleKey = "") {
   const probeRef = useRef<HTMLDivElement>(null);
   const [leaves, setLeaves] = useState<Block[][] | null>(null);
 
@@ -95,7 +98,7 @@ export function usePagination(content: string, available: number) {
       window.removeEventListener("resize", onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available, content]);
+  }, [available, content, scaleKey]);
 
   return { probeRef, probeBlocks: blocks, leaves };
 }

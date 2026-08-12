@@ -17,8 +17,7 @@ export function toBlocks(content: string): Block[] {
     .map((text, i) => ({ t: i === 0 ? "open" : "p", text }) as Block);
 }
 
-export const wordCount = (content: string) =>
-  content.split(/\s+/).filter(Boolean).length;
+export const wordCount = (content: string) => content.split(/\s+/).filter(Boolean).length;
 
 /** Rounded up, at a middling prose pace. */
 export const readingMinutes = (content: string) =>
@@ -27,16 +26,12 @@ export const readingMinutes = (content: string) =>
 /* --------------------------------- pieces --------------------------------- */
 
 function Para({ text }: { text: string }) {
-  return (
-    <p className="mt-6 text-lg leading-[1.9] font-light text-ink first:mt-0 sm:text-xl">
-      {text}
-    </p>
-  );
+  return <p className="reader-p mt-6 font-light text-ink first:mt-0">{text}</p>;
 }
 
 function Opening({ text }: { text: string }) {
   return (
-    <p className="dropcap text-2xl leading-[1.7] font-light italic text-ink">
+    <p className="dropcap reader-open font-light italic text-ink">
       <span aria-hidden="true">{text.slice(0, 1)}</span>
       {text.slice(1)}
     </p>

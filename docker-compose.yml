@@ -38,6 +38,8 @@ services:
       - RESEND_FROM=${RESEND_FROM:-}
       # Used to build the "read it" link in the notification email.
       - APP_URL=${APP_URL:-}
+      # Salts the visitor hash behind the per-chapter view counter.
+      - VIEW_SALT=${VIEW_SALT:-}
     volumes:
       - pb_data:/pb/pb_data
     expose:

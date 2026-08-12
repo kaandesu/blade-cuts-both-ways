@@ -180,6 +180,38 @@
   color: var(--ink-soft);
 }
 
+/*
+ * Reading size. One scale drives the prose — body and opening paragraph — so
+ * the page keeps its proportions at any setting. Chapter titles are display
+ * type and stay put.
+ * Set from data-font on <html> (see src/hooks/useFontSize.ts).
+ */
+:root {
+  --reader-scale: 1;
+}
+[data-font="small"] {
+  --reader-scale: 0.875;
+}
+[data-font="big"] {
+  --reader-scale: 1.18;
+}
+
+.reader-p {
+  font-size: calc(1.125rem * var(--reader-scale));
+  line-height: 1.9;
+}
+
+@media (min-width: 640px) {
+  .reader-p {
+    font-size: calc(1.25rem * var(--reader-scale));
+  }
+}
+
+.reader-open {
+  font-size: calc(1.5rem * var(--reader-scale));
+  line-height: 1.7;
+}
+
 .dropcap::first-letter {
   float: left;
   font-size: 4.2em;
